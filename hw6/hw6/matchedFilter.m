@@ -11,6 +11,7 @@ clear all;
 	figure;
 		plot(t,p);
 		title("pulse used for bpsk");
+		print -dpng "pulse.png"
 %finding the points at which amplitude goes beyond <tolerance specified>
 	idx = lookup(p((fs*2)+1:end),tolerance);
 	limit=t(idx+(fs*2));
@@ -19,7 +20,7 @@ clear all;
 	width = limit;
 %need to truncate the pulse in the limits . 
 	t_trunc = t((2*fs)-idx:(2*fs)+idx);
-	p_trunc = p((2*fs)-idx:(2*fs)+idx);
+	p_trunc = p((2*fs)-idx:(2*fs)+idx)/fs;  %multiplication by Ts as dictated by impulse invariance method
 	disp(["length of the sequence P_trunc = " num2str(length(p_trunc))])
 %modelling the low pass filter , taking the sampling freq(fs = 10) and tolerance = 0.001
 	tolerance = 0.001
@@ -27,7 +28,7 @@ clear all;
 	t = 0:1/fs:3;
 	h = exp(-t/RC);
 	idx = lookup(h,tolerance);
-	h_trunc = h(1:idx);
+	h_trunc = h(1:idx)/fs;
 	disp([" length of the sequence h at " num2str(fs) " and tolerance " num2str(tolerance) " is " num2str(length(h_trunc))])
 	figure
 		plot(t,h);
@@ -37,8 +38,6 @@ clear all;
 %generating random symbols for bpsk modulation
 	k = 10000; %be the number of arbitrary symbols
 	sk	= -1 + 2*(rand(1,k)>0.5);
-	%sk_1 = zeros(1,2000);
-	%sk_1(1:2:end) = sk;
 
 
 %generating pulses to be transmitted . 
@@ -66,42 +65,41 @@ clear all;
 	%multiplication by this parameter changes amplitude of the gaussian noise
 	for i = 1:5
 		tx_sig(i,:) = mod_sig_filtered+ variance_param(i).*randn(1,len_tx_sig);
+
 	endfor
 %matched filter reciever 
 	basis = conv(p_trunc,h_trunc);
 	matched_filter = basis(end:-1:1); 
 %decoding of symbols 
-%		len_basis = length(basis)
-%	sk_hat = conv(tx_sig(1,:),matched_filter);
-%	figure;
-%		subplot(2,1,1)
-%			stem(sk_hat(2*N:length(p_trunc):11*N));
-%			title("Estimated symbol s_^ k");
-%		subplot(2,1,2)
-%			stem(sk(1:10));
-%			title("original transmitted symbols (first 10)");
-%		print -dpng "symbol_detection.png"
-	
 	sk_hat = zeros(5,k);
 	for i = 1:5
 		matched_filter_out = conv(tx_sig(i,:),matched_filter);
 		sk_hat(i,:) = -1 + 2.*(matched_filter_out(2*N:length(p_trunc):end-length(matched_filter))>0);
 	end
-%plotting symbols
-	
-	figure;
-	subplot(2,1,1)
-		stem(sk_hat(5,1:10));
-		title("Estimated symbol ");
-	subplot(2,1,2)
-		stem(sk(1:10));
-		title("original transmitted symbols (first 10)");
-	print -dpng "symbol_detection.png"
+
 %calculation of bit error rate
 	error_rate = zeros(1,5);
 	for i = 1:5
 		error_rate(i) = sum((sk - sk_hat(i,1:k)) != 0) / k;
 	end
 	figure;
-	plot(error_rate);
 
+		plot([0.1 0.2 0.5 0.8 1.0],error_rate);
+		title("Bit Error rate");
+		grid on;
+		print -dpng "bit-error-rate.png"
+
+%plotting symbols
+	
+	figure;
+	subplot(3,1,1)
+		stem(sk(1:10));
+		title("original transmitted symbols (first 10)");
+
+	subplot(3,1,2)
+		plot(tx_sig(2,1:10*N));
+		title(["signal recieved for first 10 symbols at 0.2 * randn"] );
+	subplot(3,1,3)
+		stem(sk_hat(2,1:10));
+		title(["Estimated symbol at error-rate " num2str(error_rate(2))]);
+	print -dpng "symbol-detection.png"
