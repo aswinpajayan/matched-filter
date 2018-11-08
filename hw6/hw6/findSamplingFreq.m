@@ -3,7 +3,7 @@ clear all;
 
 %setting the parameters 
 %let fs be the sampling frequency 
-	fs = 1000;
+	fs = 10;
 	tolerance = 0.01;
 %generating a pulse 
 	t = -2:1/fs:2;
@@ -34,42 +34,71 @@ clear all;
 %calculating the value of 'N' , given Rb = 0.4 
 	N = fs/0.4;
 %generating random symbols for bpsk modulation
-	sk = -1 + 2*(rand(1,1000)>0.5);
+	sk	= -1 + 2*(rand(1,10000)>0.5);
+	%sk_1 = zeros(1,2000);
+	%sk_1(1:2:end) = sk;
+
+
 %generating pulses to be transmitted . 
 	mod_sig = [];
        for i = sk
       	 	mod_sig =[mod_sig i.*[p_trunc  zeros(1,N-length(p_trunc))]];
 	endfor  
-%plotting the modulated signal for first five symbol durations 
+%%plotting the modulated signal for first five symbol durations 
        	figure;
 		subplot(2,1,1)	
 			plot(mod_sig(1:5*N));
 			title("	first five symbols ");
 
 %low pass filtering by h_n
-	mod_sig_filtered = conv(h,mod_sig);
+	mod_sig_filtered = conv(h_trunc,mod_sig);
 		subplot(2,1,2)
 			plot(mod_sig_filtered(1:5*N));
 			title("modulated signal after low pass filtering")
-			print -djpg "modulated_signal.jpg"			
+			print -djpg "modulatedsignal.jpg"			
 %addition of  gaussian noise 
 	len_tx_sig = length(mod_sig_filtered);
 	tx_sig = zeros(5,len_tx_sig);
 	len_tx_sig = length(mod_sig_filtered);
-	variance_param = [0.1 0.2 0.5 0.8 1.0];
+	variance_param = [0.1 0.2 0.5 0.8 1.0]; 
+	%multiplication by this parameter changes amplitude of the gaussian noise
 	for i = 1:5
-		tx_sig(i,:) = mod_sig_filtered + variance_param(i).*randn(1,len_tx_sig);
+		tx_sig(i,:) = mod_sig_filtered/4+ variance_param(i).*randn(1,len_tx_sig);
 	endfor
 %matched filter reciever 
 	basis = conv(p_trunc,h_trunc);
-	matched_filter = basis(end:-1:1);
+	matched_filter = basis(end:-1:1); 
 %decoding of symbols 
-	matched_fil_out = conv(mod_sig_filtered,matched_filter);
-	plot(matched_fil_out(1:5*N));
-	s_hat_k = [];
-	len_basis = length(basis)
-	for i  = 1:length(sk)
-		matched_fil_out = tx_sig(1,i:i+len_basis) 
-		s_hat_k(i) = matched_fil_out(len_basis);
-	endfor
+%		len_basis = length(basis)
+%	sk_hat = conv(tx_sig(1,:),matched_filter);
+%	figure;
+%		subplot(2,1,1)
+%			stem(sk_hat(2*N:length(p_trunc):11*N));
+%			title("Estimated symbol s_^ k");
+%		subplot(2,1,2)
+%			stem(sk(1:10));
+%			title("original transmitted symbols (first 10)");
+%		print -dpng "symbol_detection.png"
+	
+	sk_hat = zeros(5,10001);
+	for i = 1:5
+		matched_filter_out = conv(tx_sig(i,:),matched_filter);
+		sk_hat(i,:) = -1 + 2.*(matched_filter_out(2*N:length(p_trunc):end)>0);
+	end
+%plotting symbols
+	
+	figure;
+	subplot(2,1,1)
+		stem(sk_hat(5,1:10));
+		title("Estimated symbol ");
+	subplot(2,1,2)
+		stem(sk(1:10));
+		title("original transmitted symbols (first 10)");
+	print -dpng "symbol_detection.png"
+%calculation of bit error rate
+	error_rate = zeros(1,5);
+	for i = 1:5
+		error_rate(i) = sum((sk - sk_hat(i,1:10000)) != 0) / 10000;
+	end
+	plot(error_rate);
 
