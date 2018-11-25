@@ -1,7 +1,7 @@
 # Matched Filter Reciever 
 --a matched filter implementation in octave
 
-### Uses a truncated Gaussian Pulse to transmitt BPSK pulses
+### Uses a truncated Gaussian Pulse to transmit BPSK pulses
 ### Channel is modelled as a low pass filter . 
 ### White noise is added to the signal after modulation . 
 
